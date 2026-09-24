@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tracedelta
+      POSTGRES_USER: tracedelta
+      POSTGRES_PASSWORD: localdevonly
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracedelta"]
+      interval: 5s
+      retries: 12
+  api:
+    build: ./services/api
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://tracedelta:localdevonly@db:5432/tracedelta
+      CORS_ORIGINS: http://localhost:3000
+      APP_ENV: development
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+    depends_on:
+      db: {condition: service_healthy}
+  web:
+    build:
+      context: ./apps/web
+    ports: ["3000:3000"]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on: [api]
+volumes:
+  pgdata:
